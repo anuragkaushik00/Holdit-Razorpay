@@ -17,13 +17,19 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    postgres_url: str = Field(..., alias="POSTGRES_URL")
+    postgres_url: str = Field(
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/holdit", 
+        alias="POSTGRES_URL"
+    )
 
-    jwt_secret: str = Field(..., alias="JWT_SECRET")
-    jwt_expiry: int = Field(..., alias="JWT_EXPIRY")
+    jwt_secret: str = Field(
+        "default_dev_secret_do_not_use_in_prod", 
+        alias="JWT_SECRET"
+    )
+    jwt_expiry: int = Field(3600, alias="JWT_EXPIRY")
     smtp_username: str = Field("", alias="SMTP_USERNAME")
     smtp_password: str = Field("", alias="SMTP_PASSWORD")
-    smtp_host: str = Field("", alias="SMTP_HOST")
+    smtp_host: str = Field("smtp.gmail.com", alias="SMTP_HOST")
     smtp_port: int = Field(587, alias="SMTP_PORT")
     smtp_from_email: str = Field("noreply@holdit.com", alias="SMTP_FROM_EMAIL")
     firebase_credentials_json: str = Field("", alias="FIREBASE_CREDENTIALS_JSON")
@@ -37,7 +43,7 @@ class Settings(BaseSettings):
     # Production hardening
     sentry_dsn: str = Field("", alias="SENTRY_DSN")
     allowed_origins: str = Field(
-        "http://localhost:3000", alias="ALLOWED_ORIGINS"
+        "http://localhost:3000,*", alias="ALLOWED_ORIGINS"
     )
     rate_limit_per_minute: int = Field(100, alias="RATE_LIMIT_PER_MINUTE")
     environment: str = Field("development", alias="ENVIRONMENT")

@@ -1,189 +1,62 @@
-# HoldIt — Geospatial Inventory Reservation System
+# Holdit-Razorpay
 
-Reserve products at nearby stores and pick them up with a secure 6-digit OTP.
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | FastAPI 0.100+, Python 3.11, SQLAlchemy async |
-| **Frontend** | Next.js 14.2, React 18, TypeScript 5.7, Tailwind CSS |
-| **Database** | PostgreSQL 15 + PostGIS |
-| **Cache / Queue** | Redis 7 + Celery |
-| **Auth** | JWT (HS256) — access 1 h, refresh 7 d |
-| **Payments** | Razorpay Orders API + webhook HMAC verification |
-| **Monitoring** | Sentry SDK (optional) |
-| **Rate Limiting** | slowapi (default 100 req/min/IP) |
-
----
-
-## Quick Start
-
-### Option A — Docker Compose (recommended)
-
-```bash
-# 1. Copy and fill in env files
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
-
-# 2. Start all services
-docker-compose up
-
-# 3. Run database migrations (first run only)
-docker-compose exec backend alembic upgrade head
-```
-
-Frontend → http://localhost:3000  
-Backend API → http://localhost:8000  
-API Docs → http://localhost:8000/docs (development only)
-
-### Option B — Local dev
-
-**Backend**
-```bash
-cd backend
-python -m venv .venv && .venv\Scripts\activate   # Windows
-pip install -r requirements.txt
-cp .env.example .env   # then fill in values
-uvicorn main:app --reload                         # Port 8000
-# Celery (separate terminal)
-celery -A app.workers.celery_app worker --loglevel=info
-```
-
-**Frontend**
-```bash
-cd frontend
-npm install
-cp .env.example .env.local   # then fill in values
-npm run dev                   # Port 3000
-```
-
-**Database migrations**
-```bash
-cd backend
-alembic upgrade head
-```
-
----
-
-## Environment Variables
-
-### `backend/.env`
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `POSTGRES_URL` | ✅ | PostgreSQL connection string (asyncpg) |
-| `REDIS_URL` | ✅ | Redis connection string |
-| `JWT_SECRET` | ✅ | Random hex ≥ 32 chars — `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `JWT_EXPIRY` | ✅ | Access token TTL in seconds (default 3600) |
-| `RAZORPAY_KEY_ID` | 💳 | From [Razorpay Dashboard](https://dashboard.razorpay.com/app/keys) |
-| `RAZORPAY_KEY_SECRET` | 💳 | Razorpay secret (server-side only) |
-| `SENTRY_DSN` | ⚡ | Leave blank to disable Sentry |
-| `ALLOWED_ORIGINS` | 🔒 | Comma-separated allowed CORS origins |
-| `ENVIRONMENT` | 🔒 | `development` / `staging` / `production` |
-| `RATE_LIMIT_PER_MINUTE` | ⚡ | Requests per minute per IP (default 100) |
-| `TWILIO_*` | 📱 | SMS OTP notifications (optional) |
-| `FIREBASE_CREDENTIALS_JSON` | 📱 | Push notifications (optional) |
-| `AWS_*` | ☁️ | S3 image storage (optional) |
-| `GOOGLE_CLIENT_ID` | 🔐 | Google OAuth login (optional) |
-
-### `frontend/.env.local`
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | ✅ | Backend URL (e.g. `http://localhost:8000`) |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | 💳 | Razorpay **publishable** key (safe to expose) |
-
----
-
-## Payment Flow
-
-```
-User → /checkout → POST /payments/create-order (backend creates Razorpay order)
-     ↓
-Razorpay modal (card/UPI/netbanking — never touches our servers)
-     ↓
-POST /payments/verify (backend HMAC-SHA256 verifies signature)
-     ↓
-/payment-success → shows reservation OTP
-```
-
-**Security**: Card details never reach HoldIt servers. Backend validates every payment via HMAC signature — frontend cannot forge a successful payment.
-
-**Test Razorpay credentials** (sandbox):  
-Card: `4111 1111 1111 1111` · Expiry: any future · CVV: any 3 digits
-
----
-
-## Production Deployment
-
-### Production Compose
-
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-This overlay:
-- Hides postgres/redis ports from the host
-- Sets `ENVIRONMENT=production` (disables API docs, enables JSON logs, HSTS header)
-- Adds resource limits
-
-### Pre-deployment Checklist
-
-- [ ] Set strong `JWT_SECRET` (≥ 32 random bytes)
-- [ ] Fill in `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` (live keys for prod)
-- [ ] Set `ALLOWED_ORIGINS` to your frontend domain
-- [ ] Set `ENVIRONMENT=production`
-- [ ] Set `SENTRY_DSN` for error monitoring
-- [ ] Enable database SSL (`?ssl=require` in `POSTGRES_URL`)
-- [ ] Set Redis password and update `REDIS_URL`
-- [ ] Run `alembic upgrade head` on production DB
-
----
-
-## CI / CD
-
-GitHub Actions runs on every push to `main` and on PRs:
-
-1. **Backend lint** — `ruff` + `mypy`
-2. **Frontend type check** — `tsc --noEmit`
-3. **Docker build** — smoke-tests both images
-
-See `.github/workflows/ci.yml`.
-
----
+HoldIt is a **geospatial inventory reservation system** that helps users reserve products at nearby stores. This project features a Next.js frontend, a FastAPI backend, and Razorpay integration for payments.
 
 ## Architecture
 
-```
-frontend/                   # Next.js 14 — App Router
-  app/
-    checkout/               # ← NEW: payment checkout page
-    payment-success/        # ← NEW: success state
-    payment-failed/         # ← NEW: failure/retry state
-    reserve/                # OTP display after reservation
-    my-reservations/        # User's reservation history
-    stores/                 # Geospatial store search
-    manager/                # Store staff dashboard
-  components/
-    RazorpayButton.tsx      # ← NEW: lazy-loaded payment modal trigger
-  lib/
-    api.ts                  # Axios client with JWT auto-refresh
-    types.ts                # TypeScript interfaces
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Backend**: FastAPI (Python), SQLAlchemy ORM
+- **Database**: PostgreSQL with PostGIS for geospatial data
+- **Payments**: Razorpay
 
-backend/
-  main.py                   # App entrypoint (logging, CORS, rate limit, Sentry)
-  app/
-    api/routes/
-      payments.py           # ← NEW: create-order / verify / webhook / list
-    services/
-      payment_service.py    # ← NEW: Razorpay client, HMAC verification
-    models/
-      payment.py            # ← NEW: Payment ORM model
-    schemas/
-      payment.py            # ← NEW: Pydantic request/response schemas
-    core/
-      config.py             # Settings (env-driven)
-  alembic/versions/
-    003_add_payments_table  # ← NEW migration
+For detailed architectural information, please see:
+- [Micro Architecture](docs/MICRO_ARCHITECTURE.md)
+- [Workflow](docs/WORKFLOW.md)
+- [API Reference](docs/API.md)
+
+## Quick Start (Docker)
+
+The project has been configured with safe mock default environment variables, so no manual `.env` file configuration is required to get started!
+
+```bash
+docker-compose up --build
 ```
+
+Access the application:
+- **Backend API Docs**: http://localhost:8000/docs
+- **Frontend App**: http://localhost:3000
+
+## Manual Development Setup
+
+If you prefer running services locally instead of Docker:
+
+### 1. Database
+Ensure you have PostgreSQL running with the PostGIS extension enabled on `localhost:5432`.
+```sql
+CREATE EXTENSION postgis;
+```
+
+### 2. Backend
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn main:app --reload --port 8000
+```
+*Note: A background sweeper task automatically runs every minute to expire stale reservations. Celery and Redis are no longer required for this functionality.*
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Features
+- **Geospatial Queries**: Finds nearest stores and availability using PostGIS.
+- **Reservations**: 10-minute hold on inventory items.
+- **Razorpay**: Integrated payment gateway with secure webhook/HMAC signature verification.
+- **Safe Defaults**: Will run out-of-the-box in development.
+
+## Production
+In production, ensure you override the safe mock defaults in `.env` files with secure keys, databases, and Razorpay credentials.

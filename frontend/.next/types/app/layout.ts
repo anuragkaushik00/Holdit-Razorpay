@@ -1,4 +1,4 @@
-// File: C:\Users\adity\OneDrive\Desktop\HoldIt-main\HoldIt-main\holdit\frontend\app\layout.tsx
+// File: C:\Users\adity\OneDrive\Desktop\holdit\frontend\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

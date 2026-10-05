@@ -130,6 +130,21 @@ async def log_requests(request: Request, call_next):
     return response
 
 # ── Lifecycle Events ──────────────────────────────────────────────────────────
+import asyncio
+from app.core.database import AsyncSessionLocal
+from app.services.reservation_service import sweep_expired_reservations
+
+async def sweeper_task():
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                count = await sweep_expired_reservations(db)
+                if count > 0:
+                    logger.info(f"Swept {count} expired reservations.")
+        except Exception as e:
+            logger.error(f"Error in sweeper task: {e}")
+        await asyncio.sleep(60)
+
 @app.on_event("startup")
 async def startup_event():
     logger.info(
@@ -137,6 +152,8 @@ async def startup_event():
         settings.environment,
         settings.database_pool_size,
     )
+    # Start the sweeper task in the background
+    asyncio.create_task(sweeper_task())
 
 
 @app.on_event("shutdown")
